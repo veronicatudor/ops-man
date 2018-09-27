@@ -1,0 +1,8 @@
+ami_id: ami-d834aba1
+instance_type_om: m3.xlarge
+instance_type_rs: t2.small
+key_name: veronica-sa-ie
+aws_region: eu-west-1
+tags_om: {"owner": "veronica.tudor", "expire-on": "2018-08-25", "Name": "veronica-demo-om", "project":"Veronica Ops Manager Demo"}
+tags_rs: {"owner": "veronica.tudor", "expire-on": "2018-08-25", "Name": "veronica-demo-rs", "project":"Veronica Ops Manager Demo"}
+opsmanager_kit: mongodb-mms-4.0.1.50101.20180801T1117Z-1.x86_64.rpm

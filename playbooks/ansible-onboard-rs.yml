@@ -1,0 +1,52 @@
+---
+# this part is not needed as we use the file already populated  
+# - hosts: localhost
+#   connection: local
+#   tasks:
+#   - name: Create the config file
+#     shell: python ../autoConfigRS.py
+#     register: result
+- hosts: opsManager
+  remote_user: ec2-user
+  become: yes
+  tasks:
+  #- copy: src=../files/autoConfigClean.json dest=/home/ec2-user/autoConfigClean.json
+  - copy: src=../files/autoConfigRS.json dest=/home/ec2-user/autoConfigRS.json
+  - shell: cat /home/ec2-user/autoConfigRS.json
+    register: result
+  - set_fact: cfg="{{result.stdout | from_json}}"
+# collect the values for authentication parameters
+  - shell: cat /home/ec2-user/firstuser.json
+    register: result
+  - set_fact: userinfo="{{result.stdout | from_json}}"
+  - debug: msg="apikey {{userinfo.json.apiKey}}"
+  - shell: cat /home/ec2-user/omgroup.json
+    register: result
+  - set_fact: groupinfo="{{result.stdout | from_json}}"
+  - debug: msg="group id {{groupinfo.json.id}}"
+  - name: Setup the basis for the Replica Set
+    uri:
+       url: "{{opsmanagerurl}}/api/public/v1.0/groups/{{groupinfo.json.id}}/automationConfig"
+       method: PUT
+       user: "{{userinfo.json.user.username}}"
+       password: "{{userinfo.json.apiKey}}"
+       body_format: "json"
+       body:  "{{cfg}}"
+       status_code: 200
+#  - name: Add entry to the Whitelist. This doesn't currently work and needs manual intervention.
+#    shell: "curl -i -u \"{{userinfo.json.user.username}}:{{userinfo.json.apiKey}}\" -H \"Content-Type: application/json\" --digest -X POST \"{{opsmanagerurl}}/api/public/v1.0/users/{{userinfo.json.user.id}}/whitelist\" --data '[ {\"ipAddress\" : \"0.0.0.0\"} ]'"
+#    register: result
+  - name: Register the Replica Set
+# This is the curl command to register a ReplicaSet
+# curl -i -u "username:apiKey" -H "Content-Type: application/json" --digest -X POST "https://<ops-manager-host>/api/public/v1.0/users/5356823b3004dee37132bb7b/whitelist" --data '[ {"ipAddress" : "76.54.32.10"} ]'
+    uri:
+       url: "{{opsmanagerurl}}/api/public/v1.0/groups/{{groupinfo.json.id}}/automationConfig"
+       method: PUT
+       user: "{{userinfo.json.user.username}}"
+       password: "{{userinfo.json.apiKey}}"
+       body_format: "json"
+       body:  "{{cfg}}"
+       status_code: 200
+  - debug: msg={{result.stdout}}
+  - name: Restart Ops Manager
+    service: name=mongodb-mms state=restarted

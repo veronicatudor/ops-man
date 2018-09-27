@@ -1,0 +1,7 @@
+[local]
+localhost ansible_python_interpreter=/Users/veronica/anaconda2/bin/python
+
+[local:vars]
+rs_size=3
+rs_name=repset
+rs_mongod_ports=27000 27000 27000

@@ -1,0 +1,26 @@
+[local]
+localhost ansible_python_interpreter=/Users/veronica/anaconda2/bin/python
+
+[local:vars]
+rs_size=3
+rs_name=repset
+rs_mongod_ports=27000 27000 27000
+
+[opsManager]
+ec2-34-243-98-16.eu-west-1.compute.amazonaws.com ansible_user=ec2-user
+opsmanager_groupid=5b8547a0e9535b27c863c5ba
+opsmanager_apikey=33fa224a-03a2-4769-92bc-10bb7cb6015d
+
+[opsManager:vars]
+opsmanagerurl=http://ec2-34-243-98-16.eu-west-1.compute.amazonaws.com:8080
+opsmanager_groupid=5b8547a0e9535b27c863c5ba
+opsmanager_apikey=33fa224a-03a2-4769-92bc-10bb7cb6015d
+
+[ReplicaSet]
+ec2-34-247-56-72.eu-west-1.compute.amazonaws.com ansible_user=ec2-user custom_hostname=mdb1.demo
+ec2-34-255-176-108.eu-west-1.compute.amazonaws.com ansible_user=ec2-user custom_hostname=mdb2.demo
+ec2-34-253-202-242.eu-west-1.compute.amazonaws.com ansible_user=ec2-user custom_hostname=mdb3.demo
+
+[ReplicaSet:vars]
+opsmanagerurl=http://ec2-34-243-98-16.eu-west-1.compute.amazonaws.com:8080
+opsmanager=ec2-34-243-98-16.eu-west-1.compute.amazonaws.com

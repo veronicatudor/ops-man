@@ -1,0 +1,27 @@
+-- load the data
+(get the IP of a replica from the AWS web page)
+scp -i ~/.ssh/veronica-sa-ie.pem demo_workload/data/campaign_part_1000000.json ec2-user@34.245.23.93:~
+
+ssh -i ~/.ssh/veronica-sa-ie.pem ec2-user@34.245.23.93
+
+mongoimport --port 27000 -d campaigns -c donations --file campaign_part_1000000.json
+
+# for 3.6:
+# mongo --host "mongodb://mdb1.demo:27000,mdb2.demo:27000,mdb3.demo:27000/test&replicaset=repset"
+
+# for 3.4:
+mongo --host repset/mdb1.demo:27000,mdb2.demo:27000,mdb3.demo:27000
+
+db = db.getSiblingDB("campaigns");
+collection = db.getCollection("donations");
+for(i=0; i < 2000; i++){
+collection.find({contributor_occupation:"INVESTMENT BANKER"}).sort({amount:-1}).toArray();
+collection.find({contributor_occupation:"INVESTMENT BANKER"}).toArray();
+collection.find({contributor_occupation:"INVESTMENT BANKER"}).sort({candidate_name:1}).toArray();
+};
+
+
+---
+-- To query a snapshot use:
+- First add an entry in /etc/hosts for ops manager server
+- Run the following: ./tunnel-xxxx --remote om.demo:25999 -v

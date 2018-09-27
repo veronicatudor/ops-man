@@ -1,0 +1,4 @@
+172.31.13.66 om.demo  om
+172.31.13.241  mdb1.demo  mdb1
+172.31.4.170  mdb2.demo  mdb2
+172.31.3.187  mdb3.demo  mdb3

@@ -1,0 +1,46 @@
+---
+- name: Create AWS resources
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  tasks:
+  - name: Create the EC2 instance for OM
+    ec2:
+      aws_access_key: "{{ lookup('env', 'AWS_ACCESS_KEY') }}"
+      aws_secret_key: "{{ lookup('env', 'AWS_SECRET_KEY') }}"
+      group_id: "{{ lookup('env', 'AWS_GROUP_ID') }}"
+      key_name: "{{key_name}}"
+      region: "{{aws_region}}"
+      instance_type: "{{instance_type_om}}"
+      image: "{{ami_id}}"
+      wait: yes
+      volumes:
+        - device_name: /dev/xvda
+          volume_type: gp2
+          volume_size: 50
+          delete_on_termination: true
+      count: 1
+      instance_tags: "{{tags_om}}"
+    register: ec2
+  - name: Create the EC2 instances for the Replica Set
+    ec2:
+       aws_access_key: "{{ lookup('env', 'AWS_ACCESS_KEY') }}"
+       aws_secret_key: "{{ lookup('env', 'AWS_SECRET_KEY') }}"
+       key_name: "{{key_name}}"
+       region: "{{aws_region}}"
+       group_id: "{{ lookup('env', 'AWS_GROUP_ID') }}"
+       instance_type: "{{instance_type_rs}}"
+       image: "{{ami_id}}"
+       wait: yes
+       count: "{{ rs_size }}"
+       instance_tags: "{{ tags_rs }}"
+    register: replicaset
+  - name: Create and attach volume to replica set instances
+    ec2_vol:
+      instance: "{{ item.id }}"
+      volume_size: 30
+      volume_type: gp2
+      device_name: /dev/xvdb
+      region: "{{ aws_region }}"
+      delete_on_termination: yes
+    with_items: "{{ replicaset.instances }}"

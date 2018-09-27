@@ -1,0 +1,31 @@
+- hosts: ReplicaSet
+  remote_user: ec2-user
+  become: yes
+  vars:
+    autoagent: mongodb-mms-automation-agent-manager-5.4.9.5483-1.x86_64.rpm
+  tasks:
+  - name: Prerequisites ReplicaSet
+    template: src=../files/mongodb.repo dest=/etc/yum.repos.d/mongodb.repo owner=root group=root mode="u=rw,g=r,o=r"
+  - yum: name=* state=latest
+  - yum: name=mongodb-org state=latest
+  - yum: name=mongodb-org-shell state=latest
+  - yum: name=gpg state=latest
+  - file: path=/data state=directory mode=0755 owner=mongod group=mongod
+  - name: Install Cookie Cutter for Python 2.7 on ReplicaSet
+    pip:
+      name={{ item.name }}
+    with_items:
+      - name: boto
+      - name: boto3
+  - name: Download automation agent
+    get_url: url="{{opsmanagerurl}}/download/agent/automation/{{autoagent}}" dest="/home/ec2-user/{{autoagent}}"
+  - name: install automation agent
+    yum: name=/home/ec2-user/{{autoagent}} state=present
+  - name: Update config mmsGroupId
+    shell: perl -pi -e "s/mmsGroupId=/mmsGroupId={{hostvars[opsmanager]['opsmanager_groupid']}}/" /etc/mongodb-mms/automation-agent.config
+  - name: Update config mmsApiKey
+    shell: perl -pi -e "s/mmsApiKey=/mmsApiKey={{hostvars[opsmanager]['opsmanager_apikey']}}/" /etc/mongodb-mms/automation-agent.config
+  - name: Update config mmsBaseUrl
+    shell: perl -pi -e "s|mmsBaseUrl=|mmsBaseUrl={{opsmanagerurl}}|" /etc/mongodb-mms/automation-agent.config
+  - name: Start automation agent
+    service: name=mongodb-mms-automation-agent state=started

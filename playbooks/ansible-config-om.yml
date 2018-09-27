@@ -1,0 +1,90 @@
+---
+- hosts: opsManager
+  remote_user: ec2-user
+  become: yes
+  tasks:
+  - name: Create head dir
+    file: path=/data/HEAD state=directory mode=0755 owner=mongodb-mms group=mongodb-mms
+  - name: Copy the pem file that will be used for queyable backup
+    copy: src=../files/mongodb.pem dest=/etc/ssl/mongodb.pem
+  - name: Create First User
+    uri:
+      url: "{{opsmanagerurl}}/api/public/v1.0/unauth/users"
+      method: POST
+      body_format: "json"
+      body: "{{ lookup('file','../files/userdemo.json') }}"
+      status_code: 201
+    register: firstuser
+# set up variables to be used later to authenticate
+  - set_fact: username="{{ firstuser.json.user.username }}"
+#  - set_fact: username="user@demo.com"  
+  - set_fact: apikey="{{ firstuser.json.apiKey }}"
+#  - set_fact: apikey="33fa224a-03a2-4769-92bc-10bb7cb6015d"
+  - name: Save the user info to file
+    copy:
+      content: "{{ firstuser }}"
+      dest: "/home/ec2-user/firstuser.json"
+# Create a first group
+  - name: Create a Group
+    uri:
+      url: "{{opsmanagerurl}}/api/public/v1.0/groups?pretty=true"
+      method: POST
+      user: "{{username}}"
+      password: "{{apikey}}"
+      body_format: "json"
+      body: "{\"name\": \"Group Demo\" }"
+      status_code: 201
+    register: omgroup
+# Record the group info
+  - name: Save the group info to file
+    copy:
+      content: "{{ omgroup }}"
+      dest: "/home/ec2-user/omgroup.json"
+# Configure OM with some additional paramters
+  - name: Configure /opt/mongodb/mms/conf/conf-mms.properties
+    blockinfile:
+      block: "{{ lookup('file', '../files/parametersOM.config') }}"
+      dest: "/opt/mongodb/mms/conf/conf-mms.properties"
+      backup: yes
+  - name: Restart Ops Manager
+    service: name=mongodb-mms state=restarted
+  - name: Get automation apikey
+    shell: mongo 127.0.0.1:27017 --quiet --eval "print(db.getSiblingDB('mmsdbconfig').config.customers.findOne().k)"
+    register: opsmanager_apikey
+  - debug: var=opsmanager_apikey
+  - name: get automation groupid
+    shell: mongo 127.0.0.1:27017 --quiet --eval "print(db.getSiblingDB('mmsdbconfig').config.customers.findOne()._id.str)"
+    register: opsmanager_groupid
+  - debug: var=opsmanager_groupid
+# Prepare the Replica Set: install MongoDB and automation agent
+- hosts: ReplicaSet
+  remote_user: ec2-user
+  become: yes
+  vars:
+    autoagent: mongodb-mms-automation-agent-manager-latest.x86_64.rpm
+  tasks:
+  - name: Prerequisites ReplicaSet
+    template: src=../files/mongodb.repo dest=/etc/yum.repos.d/mongodb.repo owner=root group=root mode="u=rw,g=r,o=r"
+  - yum: name=* state=latest
+  - yum: name=mongodb-org state=latest
+  - yum: name=mongodb-org-shell state=latest
+  - yum: name=gpg state=latest
+  - file: path=/data state=directory mode=0755 owner=mongod group=mongod
+  - name: Install Cookie Cutter for Python 2.7 on ReplicaSet
+    pip:
+      name={{ item.name }}
+    with_items:
+      - name: boto
+      - name: boto3
+  - name: Download automation agent
+    get_url: url="{{opsmanagerurl}}/download/agent/automation/{{autoagent}}" dest="/home/ec2-user/{{autoagent}}"
+  - name: install automation agent
+    yum: name=/home/ec2-user/{{autoagent}} state=present
+  - name: Update config mmsGroupId
+    shell: perl -pi -e "s/mmsGroupId=/mmsGroupId={{hostvars[opsmanager]['opsmanager_groupid'].stdout_lines[0]}}/" /etc/mongodb-mms/automation-agent.config
+  - name: Update config mmsApiKey
+    shell: perl -pi -e "s/mmsApiKey=/mmsApiKey={{hostvars[opsmanager]['opsmanager_apikey'].stdout_lines[0]}}/" /etc/mongodb-mms/automation-agent.config
+  - name: Update config mmsBaseUrl
+    shell: perl -pi -e "s|mmsBaseUrl=|mmsBaseUrl={{opsmanagerurl}}|" /etc/mongodb-mms/automation-agent.config
+  - name: Start automation agent
+    service: name=mongodb-mms-automation-agent state=started
